@@ -1,0 +1,8 @@
+# gloves.yaml
+path: C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\dataset
+train: C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\dataset\train 
+val: C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\dataset\valid
+
+
+nc: 2
+names: ['Gloves', 'Hand']
