@@ -1,1 +1,14 @@
-/dataset
+/old_dataset
+/old_runs
+/runs
+/final
+
+# Ignore all JPG images
+*.jpg
+*.jpeg
+*.png
+
+*.mp4
+
+# Ignore all PyTorch model files
+*.pt
