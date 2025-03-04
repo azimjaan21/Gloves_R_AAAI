@@ -8,7 +8,7 @@ seg_model = YOLO("runs/segment/train/weights/best.pt")  # Glove Segmentation
 pose_model = YOLO("yolo11m-pose.pt")  # Pose Estimation (Only for Hands)
 
 # Load image
-image_path = "cons.jpg"  # Replace with your image
+image_path = "2.jpg"  # Replace with your image
 frame = cv2.imread(image_path)
 
 # Run inference

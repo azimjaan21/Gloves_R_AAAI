@@ -1,7 +1,7 @@
 # gloves.yaml
 path: C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\final
 train: C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\final\train 
-val: C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\final\valid
+val: C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\evaluation
 
 
 nc: 1

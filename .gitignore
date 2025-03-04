@@ -2,7 +2,8 @@
 /old_runs
 /runs
 /final
-
+/results_wrist_gloves
+/evaluation
 # Ignore all JPG images
 *.jpg
 *.jpeg
