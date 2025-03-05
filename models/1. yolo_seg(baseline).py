@@ -9,7 +9,7 @@ model = YOLO(r'runs/segment/train/weights/best.pt')  # Path to trained model
 results = model.predict(
     source="ww.jpg",  # Path to test image
     task="segment",  # Enable segmentation mode
-    conf=0.45,  # Confidence threshold
+    conf=0.25,  # Confidence threshold
     save=False,  # Don't save default outputs
     show=False  # Don't use built-in display
 )
