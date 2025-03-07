@@ -16,7 +16,7 @@ cap = cv2.VideoCapture(input_source if is_video else 0)
 
 # Wrist keypoint indexes in YOLOv11-Pose
 WRIST_INDEXES = [9, 10]  # Left wrist = 9, Right wrist = 10
-DISTANCE_THRESHOLD = 25  # Pixels for wrist-glove matching
+DISTANCE_THRESHOLD = 15  # Pixels for wrist-glove matching
 
 while cap.isOpened():
     # Read frame

@@ -7,7 +7,7 @@ model = YOLO(r'runs/segment/train/weights/best.pt')  # Path to trained model
 
 # Run inference
 results = model.predict(
-    source="ww.jpg",  # Path to test image
+    source="image1.png",  # Path to test image
     task="segment",  # Enable segmentation mode
     conf=0.25,  # Confidence threshold
     save=False,  # Don't save default outputs
@@ -15,7 +15,7 @@ results = model.predict(
 )
 
 # Read the original image
-image = cv2.imread("ww.jpg")
+image = cv2.imread("image1.png")
 
 # Define green color for masks
 mask_color = (0, 255, 0)  # Green in BGR format

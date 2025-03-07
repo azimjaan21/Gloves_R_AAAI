@@ -1,5 +1,8 @@
 {
     "python.analysis.extraPaths": [
-        "./Real-ESRGAN"
+        "./Real-ESRGAN",
+        "./FSRCNN-Pytorch",
+        "./YOWO",
+        "./TCN/TCN"
     ]
 }

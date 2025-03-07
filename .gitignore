@@ -11,6 +11,8 @@
 *.png
 
 *.mp4
-
+*.pb
 # Ignore all PyTorch model files
 *.pt
+
+*.weights
