@@ -8,7 +8,7 @@ seg_model = YOLO("runs/segment/train/weights/best.pt")  # Glove Segmentation
 pose_model = YOLO("yolo11m-pose.pt")  # Pose Estimation (Only for Hands)
 
 # Load image
-image_path = "output.png"  # Replace with your image
+image_path = "image.png"  # Replace with your image
 frame = cv2.imread(image_path)
 
 # Run inference
@@ -47,12 +47,12 @@ for glove in glove_masks:
 # Blend overlay (50% opacity)
 frame = cv2.addWeighted(mask_overlay, 0.5, frame, 0.5, 0)
 
-# Draw wrist keypoints on top
-for (lwrist, rwrist) in wrist_keypoints:
-    if lwrist is not None:
-        cv2.circle(frame, lwrist, 6, (0, 0, 255), -1)  # Red for left wrist
-    if rwrist is not None:
-        cv2.circle(frame, rwrist, 6, (0, 0, 255), -1)  # Red for right wrist
+# # Draw wrist keypoints on top
+# for (lwrist, rwrist) in wrist_keypoints:
+#     if lwrist is not None:
+#         cv2.circle(frame, lwrist, 6, (0, 0, 255), -1)  # Red for left wrist
+#     if rwrist is not None:
+#         cv2.circle(frame, rwrist, 6, (0, 0, 255), -1)  # Red for right wrist
 
 # Show output
 cv2.imshow("Glove Detection", frame)

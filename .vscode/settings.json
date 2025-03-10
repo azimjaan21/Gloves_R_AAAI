@@ -3,6 +3,7 @@
         "./Real-ESRGAN",
         "./FSRCNN-Pytorch",
         "./YOWO",
-        "./TCN/TCN"
+        "./TCN/TCN",
+        "./ESPCN-Pytorch"
     ]
 }

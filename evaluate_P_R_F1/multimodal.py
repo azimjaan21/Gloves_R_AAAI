@@ -1,54 +1,54 @@
 import cv2
 import torch
 import numpy as np
-from ultralytics import YOLO
-import sys
 import os
+import sys
 import torch.nn.functional as F
+import pandas as pd
+from ultralytics import YOLO
+
 
 # Add TCN directory to Python path
 tcn_path = os.path.abspath("C:/Users/dalab/Desktop/azimjaan21/Gloves_R_AAAI/TCN/TCN")  
 sys.path.append(tcn_path)
 
-from tcn import TemporalConvNet  # Import TCN
+from tcn import TemporalConvNet
+
+
 
 print("✅ All libraries imported successfully!")
 
-# Step 2: Load YOLO Models (Segmentation & Pose)
+# Step 1: Load YOLO Models (Segmentation & Pose)
 seg_model = YOLO("runs/segment/train/weights/best.pt")  # Glove Segmentation
 pose_model = YOLO("yolo11m-pose.pt")  # Wrist Keypoints
 print("✅ YOLO models loaded successfully!")
 
-# Step 3: Load Pre-Trained Temporal CNN (TCN)
+# Step 2: Load Pre-Trained Temporal CNN (TCN)
 num_channels = [2, 64, 64, 128, 128]  # TCN Layers (2 input channels: Gloves + Wrist)
 tcn_model = TemporalConvNet(num_inputs=2, num_channels=num_channels).cuda().eval()
 print("✅ TCN Model loaded successfully!")
 
 # Constants
 FRAME_BUFFER_SIZE = 7  # Temporal Window Size
-DISTANCE_THRESHOLD = 100  # Maximum wrist-to-glove distance (in pixels) for a match
+DISTANCE_THRESHOLD = 30  # Maximum wrist-to-glove distance (in pixels) for a match
 FIXED_MASK_SIZE = (64, 64)  # Standard size for glove masks
-MAX_GLOVES = 10  # Maximum gloves per frame
+MAX_GLOVES = 3  # Maximum gloves per frame
 
 # Initialize Temporal Buffer
 temporal_buffer = []  # Stores last 7 frames
 
-# Step 4: Start Video Capture
+# Step 3: Start Video Capture
 cap = cv2.VideoCapture("gloves.mp4")
 if not cap.isOpened():
     print("❌ ERROR: Video file could not be opened!")
     sys.exit()
 
-# Get video properties for saving output
-fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-fps = int(cap.get(cv2.CAP_PROP_FPS))
-width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-out = cv2.VideoWriter("output_multimodal.mp4", fourcc, fps, (width, height))
-
 print("✅ Video file opened successfully!")
 
 frame_count = 0
+
+# Initialize metrics tracking
+metrics_data = []
 
 while cap.isOpened():
     ret, frame = cap.read()
@@ -61,15 +61,15 @@ while cap.isOpened():
 
     mask_overlay = frame.copy()
 
-    # Step 5: Run YOLO-Seg for Glove Detection
+    # Step 4: Run YOLO-Seg for Glove Detection
     glove_detections = seg_model.predict(frame, conf=0.25)
     print(f"✅ Glove detection completed! Found {len(glove_detections)} results.")
 
-    # Step 6: Run YOLO-Pose for Wrist Keypoints
+    # Step 5: Run YOLO-Pose for Wrist Keypoints
     pose_detections = pose_model.predict(frame, conf=0.25)
     print(f"✅ Pose detection completed! Found {len(pose_detections)} results.")
 
-    # Step 7: Extract Wrist Keypoints
+    # Step 6: Extract Wrist Keypoints
     wrist_keypoints = []
     for result in pose_detections:
         if result.keypoints is not None and len(result.keypoints.data) > 0:
@@ -84,7 +84,7 @@ while cap.isOpened():
     wrist_keypoints = [w.cpu().numpy() if isinstance(w, torch.Tensor) else w for w in wrist_keypoints]
     print(f"✅ Extracted {len(wrist_keypoints)} wrist keypoints.")
 
-    # Step 8: Extract & Match Glove Masks
+    # Step 7: Extract & Match Glove Masks
     matched_gloves = []
     
     for result in glove_detections:
@@ -103,25 +103,43 @@ while cap.isOpened():
 
     print(f"✅ Matched {len(matched_gloves)} gloves with wrist keypoints.")
 
-    # Step 9: Store Data in Temporal Buffer
+    # Step 8: Store Data in Temporal Buffer
     temporal_buffer.append((matched_gloves, wrist_keypoints))
     if len(temporal_buffer) > FRAME_BUFFER_SIZE:
         temporal_buffer.pop(0)
     print(f"✅ Updated temporal buffer. Buffer size: {len(temporal_buffer)}")
 
+    # Step 9: Evaluate Performance
+    true_positive = len(matched_gloves)
+    false_positive = len(glove_detections) - true_positive
+    false_negative = max(0, len(wrist_keypoints) - true_positive)
 
+    # Calculate Precision, Recall, F1-score
+    precision = true_positive / (true_positive + false_positive) if (true_positive + false_positive) > 0 else 0
+    recall = true_positive / (true_positive + false_negative) if (true_positive + false_negative) > 0 else 0
+    f1_score = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
 
-    for mask in matched_gloves:
-        cv2.fillPoly(mask_overlay, [mask], color=(0, 255, 0))
-        cv2.polylines(frame, [mask], isClosed=True, color=(0, 255, 0), thickness=2)
+    # Save per-frame results
+    metrics_data.append({
+        "Frame": frame_count,
+        "True Positives": true_positive,
+        "False Positives": false_positive,
+        "False Negatives": false_negative,
+        "Precision": precision,
+        "Recall": recall,
+        "F1-score": f1_score
+    })
 
-            # Step 10: Draw Wrist Keypoints & Matched Gloves
+    # Step 10: Draw Wrist Keypoints & Matched Gloves
     for wrist in wrist_keypoints:
         if wrist is not None and wrist[0] > 0 and wrist[1] > 0:
-            cv2.circle(mask_overlay, tuple(wrist.astype(int)), 6, (0, 0, 255), -1)
+            cv2.circle(mask_overlay, tuple(wrist.astype(int)), 6, (0, 0, 255), -1)  # 🔴 Red keypoints
+
+    for mask in matched_gloves:
+        cv2.fillPoly(mask_overlay, [mask], color=(0, 255, 0))  # 🟢 Green overlay for gloves
+        cv2.polylines(mask_overlay, [mask], isClosed=True, color=(0, 255, 0), thickness=2)  # Green bounding box
 
     final_output = cv2.addWeighted(mask_overlay, 0.5, frame, 0.5, 0)
-    out.write(final_output)
 
     # Step 11: Display Results
     cv2.imshow("Glove Detection", final_output)
@@ -136,6 +154,9 @@ while cap.isOpened():
 
 # Cleanup
 cap.release()
-out.release()
 cv2.destroyAllWindows()
-print("✅ Processed video saved as 'output_multimodal.mp4'")
+
+# Step 12: Save Evaluation Results to CSV
+df = pd.DataFrame(metrics_data)
+df.to_csv("multimodal_evaluation.csv", index=False)
+print("✅ Evaluation results saved as 'multimodal_evaluation.csv'")

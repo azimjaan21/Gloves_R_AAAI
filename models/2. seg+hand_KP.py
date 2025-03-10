@@ -8,15 +8,34 @@ seg_model = YOLO("runs/segment/train/weights/best.pt")  # Glove Segmentation
 pose_model = YOLO("yolo11m-pose.pt")  # Pose Estimation (Only for Hands)
 
 # Choose input type (image or video)
-input_source = "tekpe.mp4"  # Change to "image.jpg" or "video.mp4"
+input_source = "gloves.mp4"  # Change to "image.jpg" or "video.mp4"
 is_video = input_source.endswith((".mp4", ".avi", ".mov"))
 
 # Open video capture if input is a video
 cap = cv2.VideoCapture(input_source if is_video else 0)
 
+# Get video properties for saving output
+if is_video:
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Codec for MP4 format
+    fps = int(cap.get(cv2.CAP_PROP_FPS))
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    out = cv2.VideoWriter("output_video(hy).mp4", fourcc, fps, (width, height))
+
 # Wrist keypoint indexes in YOLOv11-Pose
 WRIST_INDEXES = [9, 10]  # Left wrist = 9, Right wrist = 10
-DISTANCE_THRESHOLD = 15  # Pixels for wrist-glove matching
+DISTANCE_THRESHOLD = 100  # Pixels for wrist-glove matching
+
+# Function to compute distance from wrist to closest glove polygon side
+def point_to_line_distance(point, line_start, line_end):
+    """Computes the shortest Euclidean distance between a point and a line segment."""
+    line = np.array(line_end) - np.array(line_start)
+    if np.dot(line, line) == 0:
+        return np.linalg.norm(point - line_start)  # If same points, return point distance
+
+    t = max(0, min(1, np.dot(point - line_start, line) / np.dot(line, line)))
+    projection = line_start + t * line  # Projection on line segment
+    return np.linalg.norm(point - projection)
 
 while cap.isOpened():
     # Read frame
@@ -28,8 +47,8 @@ while cap.isOpened():
     mask_overlay = frame.copy()
 
     # Run inference
-    glove_detections = seg_model.predict(frame, task="segment", conf=0.25)
-    pose_detections = pose_model.predict(frame, task="pose", conf=0.25)
+    glove_detections = seg_model.predict(frame, conf=0.25)
+    pose_detections = pose_model.predict(frame, conf=0.25)
 
     # Extract wrist keypoints
     wrist_keypoints = []
@@ -56,7 +75,8 @@ while cap.isOpened():
 
                 # ✅ Find the closest side of the glove to the wrist
                 is_matched = any(
-                    min(np.linalg.norm(np.array(wrist) - np.array(mask_pt)) for mask_pt in mask_poly) < DISTANCE_THRESHOLD
+                    min(point_to_line_distance(np.array(wrist), mask_poly[j], mask_poly[(j + 1) % len(mask_poly)])
+                        for j in range(len(mask_poly))) < DISTANCE_THRESHOLD
                     for wrist_pair in wrist_keypoints
                     for wrist in wrist_pair if wrist is not None
                 )
@@ -81,6 +101,10 @@ while cap.isOpened():
         if rwrist is not None:
             cv2.circle(frame, rwrist, 6, (0, 0, 255), -1)  # 🔴 Red for right wrist
 
+    # Write the processed frame to the output video
+    if is_video:
+        out.write(frame)
+
     # Show output
     cv2.imshow("Glove Detection", frame)
 
@@ -92,5 +116,9 @@ while cap.isOpened():
         cv2.waitKey(0)
         break
 
+# Release video capture & writer
 cap.release()
+if is_video:
+    out.release()
 cv2.destroyAllWindows()
+print("✅ Processed video saved as 'output_video(hy).mp4'")
