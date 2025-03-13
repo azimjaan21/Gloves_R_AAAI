@@ -5,6 +5,7 @@
 /results_wrist_gloves
 /evaluation
 /weights
+/experiment1
 # Ignore all JPG images
 *.jpg
 *.jpeg
