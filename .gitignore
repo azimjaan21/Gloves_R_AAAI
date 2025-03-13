@@ -6,6 +6,7 @@
 /evaluation
 /weights
 /experiment1
+/dataset_555
 # Ignore all JPG images
 *.jpg
 *.jpeg
