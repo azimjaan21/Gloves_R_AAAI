@@ -25,7 +25,7 @@ for img_file in os.listdir(dataset_path):
         pose_results = pose_model.predict(source=img_path, task="pose", device="cuda", conf=0.25, save=False)
 
         # Run YOLO-Seg for glove segmentation
-        seg_results = segmentation_model.predict(source=img_path, task="segment", device="cuda", conf=0.5, save=False)
+        seg_results = segmentation_model.predict(source=img_path, task="segment", device="cuda", conf=0.25, save=False)
 
         # Extract wrist keypoints
         wrist_keypoints = []

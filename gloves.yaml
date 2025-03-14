@@ -1,8 +1,8 @@
 # gloves.yaml
-path: C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\final
-train: C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\final\train 
-val: C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\evaluation
+path: C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\evaluation3
+train: C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\dataset_333\train 
+val: C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\evaluation3\
 
 
-nc: 1
-names: ['gloves']
+nc: 2
+names: ['gloves', 'no_gloves']

@@ -6,8 +6,8 @@ import os
 pose_model = YOLO(r"C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\yolo11m-pose.pt")  # Update with your model path
 
 # Define dataset path
-dataset_path = r"C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\final\valid\images"  # Update path
-output_folder = r"C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\results_wrist_detection"
+dataset_path = r"C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\evaluation2\images"  # Update path
+output_folder = r"C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\results_keypoint"
 os.makedirs(output_folder, exist_ok=True)  # Create the folder if it doesn't exist
 
 # Define wrist keypoint indexes (from YOLO-Pose keypoint order)

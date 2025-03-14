@@ -3,15 +3,24 @@
 /runs
 /final
 /results_wrist_gloves
-/evaluation
+/evaluation1
+/evaluation2
 /weights
 /experiment1
-/dataset_555
+/dataset_333
+/no_gloves_extracted
+/no_gloves_augmented
+/test_data
+/results_segmentation
+/results_keypoint
 
 # Ignore all JPG images
 *.jpg
 *.jpeg
 *.png
+
+# Labels
+*.txt
 
 *.mp4
 *.pb

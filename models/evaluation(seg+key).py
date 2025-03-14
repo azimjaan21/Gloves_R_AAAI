@@ -9,8 +9,8 @@ pose_model = YOLO(r"C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\yolo11m-pose
 segmentation_model = YOLO(r"C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\runs\segment\train\weights\best.pt")  # Glove segmentation
 
 # Dataset path
-dataset_path = r"C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\evaluation\images"
-output_folder = r"C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\results_wrist_gloves2"
+dataset_path = r"C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\evaluation3\images"
+output_folder = r"C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\hybrid_results"
 os.makedirs(output_folder, exist_ok=True)
 
 # CSV log for evaluation metrics
@@ -20,9 +20,23 @@ csv_path = os.path.join(output_folder, "evaluation_results.csv")
 WRIST_KEYPOINTS = [9, 10]  # Right wrist (9), Left wrist (10)
 DISTANCE_THRESHOLD = 25  # Pixels for "near" wrist-glove matching
 
-# Function to check if wrist is near the glove mask within a threshold
+# Function to compute shortest distance from a point (wrist) to a polygon (glove mask)
+def point_to_line_distance(point, line_start, line_end):
+    """Computes the shortest Euclidean distance between a point and a line segment."""
+    line = np.array(line_end) - np.array(line_start)
+    if np.dot(line, line) == 0:
+        return np.linalg.norm(point - line_start)  # If same points, return direct distance
+
+    t = max(0, min(1, np.dot(point - line_start, line) / np.dot(line, line)))
+    projection = line_start + t * line  # Projection on the segment
+    return np.linalg.norm(point - projection)
+
 def is_wrist_near_glove(wrist, mask_pts, threshold=DISTANCE_THRESHOLD):
-    return any(np.linalg.norm(np.array(wrist) - np.array(pt)) < threshold for pt in mask_pts)
+    """Check if wrist keypoint is within distance threshold of a glove mask."""
+    for i in range(len(mask_pts) - 1):  # Iterate over polygon edges
+        if point_to_line_distance(wrist, mask_pts[i], mask_pts[i + 1]) < threshold:
+            return True
+    return False
 
 # Evaluation storage
 evaluation_data = []

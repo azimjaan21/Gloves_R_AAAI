@@ -6,7 +6,7 @@ model = YOLO(r'runs/segment/train/weights/best.pt')  # Update path to your best 
 
 # Run inference on an image
 results = model.predict(
-    source='1.jpg',  # Path to test image
+    source='test_data/chemical.jpg',  # Path to test image
     task="segment",  # Enable segmentation mode
     conf=0.5,  # Confidence threshold
     save=False,  # Don't save default YOLO output
@@ -14,7 +14,7 @@ results = model.predict(
 )
 
 # Load image
-image = cv2.imread(0)
+image = cv2.imread()
 
 # Define custom mask colors (Modify RGB values for different colors)
 MASK_COLORS = [(0, 255, 0), (255, 0, 0), (0, 0, 255)]  # Green, Blue, Red
