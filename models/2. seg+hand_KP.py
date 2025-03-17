@@ -4,11 +4,11 @@ import torch
 from ultralytics import YOLO
 
 # Load models
-seg_model = YOLO("runs/segment/train/weights/best.pt")  # Glove Segmentation
+seg_model = YOLO("runs/segment/train/weights/gloves.pt")  # Glove Segmentation
 pose_model = YOLO("yolo11m-pose.pt")  # Pose Estimation (Only for Hands)
 
 # Choose input type (image or video)
-input_source = "test_data/test3.jpg"  # Change to "image.jpg" or "video.mp4"
+input_source = "gloves.mp4"  # Change to "image.jpg" or "video.mp4"
 is_video = input_source.endswith((".mp4", ".avi", ".mov"))
 
 # Open video capture if input is a video
@@ -24,7 +24,7 @@ if is_video:
 
 # Wrist keypoint indexes in YOLOv11-Pose
 WRIST_INDEXES = [9, 10]  # Left wrist = 9, Right wrist = 10
-DISTANCE_THRESHOLD = 30  # Pixels for wrist-glove matching
+DISTANCE_THRESHOLD = 100  # Pixels for wrist-glove matching
 
 # Function to compute distance from wrist to closest glove polygon side
 def point_to_line_distance(point, line_start, line_end):
@@ -121,4 +121,4 @@ cap.release()
 if is_video:
     out.release()
 cv2.destroyAllWindows()
-print("✅ Processed video saved as 'output_video(hy).mp4'")
+print("✅ Processed video saved as 'out_video.mp4'")

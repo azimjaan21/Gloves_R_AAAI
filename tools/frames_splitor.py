@@ -4,7 +4,7 @@ import os
 # Set input video path
 video_path = "gloves.mp4"  # Change this to your video file path
 output_folder = "frames"  # Change this to your desired output folder
-frame_rate = 1  # Extract every frame (set to higher values to skip frames)
+frame_rate = 3 # Extract every frame (set to higher values to skip frames)
 
 # Create output directory if it doesn't exist
 os.makedirs(output_folder, exist_ok=True)

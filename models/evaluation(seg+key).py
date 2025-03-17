@@ -1,26 +1,30 @@
-from ultralytics import YOLO
 import cv2
 import os
 import numpy as np
 import pandas as pd
+from ultralytics import YOLO
 
-# Load YOLO models
+# Load Hybrid Model Components
 pose_model = YOLO(r"C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\yolo11m-pose.pt")  # Wrist detection
-segmentation_model = YOLO(r"C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\runs\segment\train\weights\best.pt")  # Glove segmentation
+segmentation_model = YOLO(r"C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\runs\segment\train\weights\gloves.pt")  # Glove segmentation
 
-# Dataset path
-dataset_path = r"C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\evaluation3\images"
+# Dataset Paths
+dataset_path = r"C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\old_evaluation2"
+image_folder = os.path.join(dataset_path, "images")
+label_folder = os.path.join(dataset_path, "labels")  # Ground Truth Labels
+
 output_folder = r"C:\Users\dalab\Desktop\azimjaan21\Gloves_R_AAAI\hybrid_results"
 os.makedirs(output_folder, exist_ok=True)
 
-# CSV log for evaluation metrics
-csv_path = os.path.join(output_folder, "models/hybrid_results.csv")
+# CSV file for results
+csv_path = os.path.join(output_folder, "hybrid_evaluation_results.csv")
 
-# Define wrist keypoint indexes (from YOLO-Pose keypoint order)
-WRIST_KEYPOINTS = [9, 10]  # Right wrist (9), Left wrist (10)
-DISTANCE_THRESHOLD = 25  # Pixels for wrist-glove matching
+# Wrist keypoint indexes in YOLOv11-Pose
+WRIST_INDEXES = [9, 10]  # Left wrist = 9, Right wrist = 10
+DISTANCE_THRESHOLD = 50  # Pixels for wrist-glove matching
+IOU_THRESHOLD = 0.5 # IoU Threshold for Matching
 
-# Function to compute shortest distance from a point (wrist) to a polygon (glove mask)
+# Function to compute shortest distance from wrist to closest glove polygon side
 def point_to_line_distance(point, line_start, line_end):
     """Computes the shortest Euclidean distance between a point and a line segment."""
     line = np.array(line_end) - np.array(line_start)
@@ -31,112 +35,116 @@ def point_to_line_distance(point, line_start, line_end):
     projection = line_start + t * line  # Projection on the segment
     return np.linalg.norm(point - projection)
 
+# Function: Check if wrist keypoint is inside or near a mask polygon
 def is_wrist_near_glove(wrist, mask_pts, threshold=DISTANCE_THRESHOLD):
-    """Check if wrist keypoint is within distance threshold of a glove mask."""
-    for i in range(len(mask_pts) - 1):  # Iterate over polygon edges
+    """Check if wrist keypoint is inside or near a glove/no-glove mask polygon."""
+    if cv2.pointPolygonTest(mask_pts, wrist, False) >= 0:
+        return True  # Wrist is inside the mask polygon
+    for i in range(len(mask_pts) - 1):
         if point_to_line_distance(wrist, mask_pts[i], mask_pts[i + 1]) < threshold:
-            return True
+            return True  # Wrist is near the polygon edge
     return False
 
-# Evaluation storage
+# Function: Compute IoU for Mask Matching
+def compute_iou(pred_mask, gt_mask, image_shape=(640, 640)):
+    """Computes IoU (Intersection over Union) between two polygon masks."""
+    pred_binary_mask = np.zeros(image_shape, dtype=np.uint8)
+    gt_binary_mask = np.zeros(image_shape, dtype=np.uint8)
+
+    cv2.fillPoly(pred_binary_mask, [np.array(pred_mask, dtype=np.int32)], 1)
+    cv2.fillPoly(gt_binary_mask, [np.array(gt_mask, dtype=np.int32)], 1)
+
+    intersection = np.logical_and(pred_binary_mask, gt_binary_mask).sum()
+    union = np.logical_or(pred_binary_mask, gt_binary_mask).sum()
+
+    return intersection / (union + 1e-6)  # Avoid division by zero
+
+# Store evaluation results
 evaluation_data = []
 
-# Process each image
-for img_file in os.listdir(dataset_path):
-    if img_file.endswith(('.jpg', '.png', '.jpeg')):
-        img_path = os.path.join(dataset_path, img_file)
-        image = cv2.imread(img_path)
+# Process Each Image in Dataset
+for img_file in os.listdir(image_folder):
+    if not img_file.endswith(('.jpg', '.png', '.jpeg')):
+        continue  # Skip non-image files
 
-        # Run YOLO-Pose for wrist keypoints
-        pose_results = pose_model.predict(source=img_path, task="pose", device="cuda", conf=0.25, save=False)
+    img_path = os.path.join(image_folder, img_file)
+    image = cv2.imread(img_path)
+    overlay = image.copy()
 
-        # Run YOLO-Seg for glove segmentation
-        seg_results = segmentation_model.predict(source=img_path, task="segment", device="cuda", conf=0.25, save=False)
+    # Run YOLO Pose & Segmentation
+    pose_results = pose_model.predict(img_path, task="pose", device="cuda", conf=0.25, save=False)
+    seg_results = segmentation_model.predict(img_path, task="segment", device="cuda", conf=0.25, save=False)
 
-        # Extract wrist keypoints
-        wrist_keypoints = []
-        for result in pose_results:
-            if result.keypoints is not None and len(result.keypoints.xy) > 0:
-                for kp in result.keypoints.xy:
-                    if len(kp) > max(WRIST_KEYPOINTS):  # Ensure keypoints exist
-                        right_wrist_x, right_wrist_y = kp[9]  # Right wrist
-                        left_wrist_x, left_wrist_y = kp[10]  # Left wrist
+    # Extract Wrist Keypoints
+    wrist_keypoints = []
+    for result in pose_results:
+        if result.keypoints is not None:
+            for kp in result.keypoints.xy:
+                if len(kp) > max(WRIST_INDEXES):  # Ensure keypoints exist
+                    wrist_keypoints.append((int(kp[9][0]), int(kp[9][1])))  # Right wrist
+                    wrist_keypoints.append((int(kp[10][0]), int(kp[10][1])))  # Left wrist
 
-                        wrist_keypoints.append((int(right_wrist_x), int(right_wrist_y)))  # Right wrist
-                        wrist_keypoints.append((int(left_wrist_x), int(left_wrist_y)))  # Left wrist
+    # Extract Predicted Glove & No-Glove Masks
+    glove_masks = []
+    no_glove_masks = []
+    for result in seg_results:
+        if result.masks is not None:
+            for mask, cls in zip(result.masks.xy, result.boxes.cls):
+                mask_pts = mask.astype(np.int32)
+                if int(cls) == 0:
+                    glove_masks.append(mask_pts)  # Class 0: Gloves
+                else:
+                    no_glove_masks.append(mask_pts)  # Class 1: No Gloves
 
-        # Extract glove segmentation masks and classify by type
-        glove_masks, no_glove_masks = [], []
-        for result in seg_results:
-            if result.masks is not None:
-                for i, mask in enumerate(result.masks.xy):
-                    class_id = int(result.boxes.cls[i].item())  # Get class ID
-                    if class_id == 0:
-                        glove_masks.append(mask.astype(np.int32))  # Gloves (Class 0)
-                    elif class_id == 1:
-                        no_glove_masks.append(mask.astype(np.int32))  # No Gloves (Class 1)
+    # Validate Gloves & No Gloves using Wrist Keypoints
+    valid_glove_masks = [mask for mask in glove_masks if any(is_wrist_near_glove(wrist, mask) for wrist in wrist_keypoints)]
+    valid_no_glove_masks = [mask for mask in no_glove_masks if any(is_wrist_near_glove(wrist, mask) for wrist in wrist_keypoints)]
 
-        # Perform keypoint-based filtering
-        valid_glove_masks, valid_no_glove_masks = [], []
 
-        for mask_pts in glove_masks:
-            if any(
-                cv2.pointPolygonTest(mask_pts, wrist, False) >= 0 or is_wrist_near_glove(wrist, mask_pts)
-                for wrist in wrist_keypoints
-            ):
-                valid_glove_masks.append(mask_pts)
 
-        for mask_pts in no_glove_masks:
-            if any(
-                cv2.pointPolygonTest(mask_pts, wrist, False) >= 0 or is_wrist_near_glove(wrist, mask_pts)
-                for wrist in wrist_keypoints
-            ):
-                valid_no_glove_masks.append(mask_pts)
+    # Draw Gloves (Green) and No Gloves (Red) with 50% Opacity
+    for mask in glove_masks:
+        cv2.fillPoly(overlay, [mask], (0, 255, 0))  # Green for gloves
+    for mask in no_glove_masks:
+        cv2.fillPoly(overlay, [mask], (0, 0, 255))  # Red for no gloves
 
-        # Count metrics
-        total_gloves_detected = len(glove_masks)
-        total_no_gloves_detected = len(no_glove_masks)
-        valid_gloves = len(valid_glove_masks)
-        valid_no_gloves = len(valid_no_glove_masks)
+            # Draw wrist keypoints (Pink)
+    for wrist_x, wrist_y in wrist_keypoints:
+        cv2.circle(overlay, (wrist_x, wrist_y), 6, (255, 0, 0), -1)
 
-        false_positives_gloves = total_gloves_detected - valid_gloves
-        false_positives_no_gloves = total_no_gloves_detected - valid_no_gloves
+    # Blend overlay with transparency
+    image = cv2.addWeighted(overlay, 0.5, image, 0.5, 0)
 
-        precision_gloves = valid_gloves / (valid_gloves + false_positives_gloves + 1e-6)  # Avoid div by zero
-        precision_no_gloves = valid_no_gloves / (valid_no_gloves + false_positives_no_gloves + 1e-6)
+    # Save Processed Image
+    output_img_path = os.path.join(output_folder, img_file)
+    cv2.imwrite(output_img_path, image)
 
-        # Store evaluation data
-        evaluation_data.append({
-            "Image": img_file,
-            "Total Gloves Detected": total_gloves_detected,
-            "Valid Gloves After Filtering": valid_gloves,
-            "Total No Gloves Detected": total_no_gloves_detected,
-            "Valid No Gloves After Filtering": valid_no_gloves,
-            "False Positives Gloves": false_positives_gloves,
-            "False Positives No Gloves": false_positives_no_gloves,
-            "Precision Gloves": round(precision_gloves, 4),
-            "Precision No Gloves": round(precision_no_gloves, 4)
-        })
+    # Compute Metrics
+    total_gloves_detected = len(glove_masks)
+    valid_gloves = len(valid_glove_masks)
+    false_positives_gloves = total_gloves_detected - valid_gloves
 
-        # Visualization
-        for mask_pts in glove_masks:
-            cv2.polylines(image, [mask_pts], isClosed=True, color=(255, 0, 0), thickness=2)  # Blue outline for Gloves
-        for mask_pts in no_glove_masks:
-            cv2.polylines(image, [mask_pts], isClosed=True, color=(0, 165, 255), thickness=2)  # Orange outline for No Gloves
+    total_no_gloves_detected = len(no_glove_masks)
+    valid_no_gloves = len(valid_no_glove_masks)
+    false_positives_no_gloves = total_no_gloves_detected - valid_no_gloves
 
-        for mask_pts in valid_glove_masks:
-            cv2.fillPoly(image, [mask_pts], color=(0, 255, 0))  # Green for valid Gloves
-        for mask_pts in valid_no_glove_masks:
-            cv2.fillPoly(image, [mask_pts], color=(0, 0, 255))  # Red for valid No Gloves
+    precision_gloves = valid_gloves / (valid_gloves + false_positives_gloves + 1e-6)
+    precision_no_gloves = valid_no_gloves / (valid_no_gloves + false_positives_no_gloves + 1e-6)
 
-        for wrist_x, wrist_y in wrist_keypoints:
-            cv2.circle(image, (wrist_x, wrist_y), 6, (180, 105, 255), -1)  # Pink wrist keypoints
+    # Store Evaluation Data
+    evaluation_data.append({
+        "Image": img_file,
+        "Total Gloves Detected": total_gloves_detected,
+        "Valid Gloves": valid_gloves,
+        "Total No Gloves Detected": total_no_gloves_detected,
+        "Valid No Gloves": valid_no_gloves,
+        "Precision Gloves": round(precision_gloves, 4),
+        "Precision No Gloves": round(precision_no_gloves, 4)
+    })
 
-        # Save processed image
-        output_img_path = os.path.join(output_folder, img_file)
-        cv2.imwrite(output_img_path, image)
+print(f"✅ Processed all images. Results saved to {output_folder}")
 
-# Save evaluation results
+# Save Evaluation Results to CSV
 df = pd.DataFrame(evaluation_data)
 df.to_csv(csv_path, index=False)
 print(f"✅ Evaluation results saved in: {csv_path}")

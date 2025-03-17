@@ -15,7 +15,7 @@ from tcn import TemporalConvNet  # Import TCN
 print("✅ All libraries imported successfully!")
 
 # Step 2: Load YOLO Models (Segmentation & Pose)
-seg_model = YOLO("runs/segment/train/weights/best.pt")  # Glove Segmentation
+seg_model = YOLO("runs/segment/train/weights/gloves.pt")  # Glove Segmentation
 pose_model = YOLO("yolo11m-pose.pt")  # Wrist Keypoints
 print("✅ YOLO models loaded successfully!")
 
@@ -26,7 +26,7 @@ print("✅ TCN Model loaded successfully!")
 
 # Constants
 FRAME_BUFFER_SIZE = 7  # Temporal Window Size
-DISTANCE_THRESHOLD = 100  # Maximum wrist-to-glove distance (in pixels) for a match
+DISTANCE_THRESHOLD = 50  # Maximum wrist-to-glove distance (in pixels) for a match
 FIXED_MASK_SIZE = (64, 64)  # Standard size for glove masks
 MAX_GLOVES = 10  # Maximum gloves per frame
 

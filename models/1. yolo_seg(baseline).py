@@ -3,10 +3,10 @@ import cv2
 import numpy as np
 
 # Load trained model
-model = YOLO(r'runs/segment/train/weights/best.pt')  # Path to trained model
+model = YOLO(r'runs/segment/train/weights/gloves.pt')  # Path to trained model
 
 # Define source (change to test on different media)
-input_source = "gloves.mp4"  # Change to "image.jpg" or "video.mp4"
+input_source = "electrical.mp4"  # Change to "image.jpg" or "video.mp4"
 is_video = input_source.endswith((".mp4", ".avi", ".mov"))
 
 # Open video file or read image

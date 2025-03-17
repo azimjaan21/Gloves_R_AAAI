@@ -4,7 +4,7 @@ import torch
 from ultralytics import YOLO
 
 # Load models
-seg_model = YOLO("runs/segment/train/weights/best.pt")  # Glove Segmentation
+seg_model = YOLO("runs/segment/train/weights/gloves.pt")  # Glove Segmentation
 pose_model = YOLO("yolo11m-pose.pt")  # Pose Estimation (Only for Hands)
 
 # Load image
