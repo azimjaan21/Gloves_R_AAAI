@@ -42,9 +42,9 @@ out = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
 
 # Store evaluation results
 evaluation_data = []
+total_tp, total_fp, total_fn = 0, 0, 0  # Initialize TP, FP, FN counters
 
 frame_index = 0
-
 while cap.isOpened():
     ret, frame = cap.read()
     if not ret:
@@ -65,9 +65,9 @@ while cap.isOpened():
                 if len(kp) > 10:  # Ensure keypoints exist
                     left_wrist = tuple(map(int, kp[9][:2].cpu().numpy())) if not torch.isnan(kp[9][:2]).any() else None
                     right_wrist = tuple(map(int, kp[10][:2].cpu().numpy())) if not torch.isnan(kp[10][:2]).any() else None
-                    if left_wrist is not None and len(left_wrist) == 2:
+                    if left_wrist is not None:
                         wrist_keypoints.append(left_wrist)
-                    if right_wrist is not None and len(right_wrist) == 2:
+                    if right_wrist is not None:
                         wrist_keypoints.append(right_wrist)
 
     # Extract Predicted Gloves & No-Gloves Masks
@@ -82,7 +82,7 @@ while cap.isOpened():
                 else:
                     no_glove_masks.append(mask_pts)  # Class 1: No Gloves
 
-    # ✅ Fix: Prevent iteration error if wrist keypoints are empty
+    # Validate Gloves & No Gloves using Wrist Keypoints
     valid_glove_masks = []
     valid_no_glove_masks = []
 
@@ -133,21 +133,48 @@ while cap.isOpened():
     output_frame_path = os.path.join(frames_output_dir, f"frame_{frame_index:04d}.jpg")
     cv2.imwrite(output_frame_path, output_image)
 
-    # Compute consistency accuracy
-    detected_gloves = len(valid_glove_masks)
-    consistency_acc = (detected_gloves / EXPECTED_GLOVES) * 100  # In percentage
+    # **Compute TP, FP, FN**
+    tp = len(valid_glove_masks)  # Correctly detected gloves
+    fn = EXPECTED_GLOVES - tp  # Missed gloves (Gloves not detected)
+    fp = len(valid_no_glove_masks)  # Misclassified gloves (Detected as no-gloves)
+
+    # **Update global TP, FP, FN counters**
+    total_tp += tp
+    total_fp += fp
+    total_fn += fn
+
+    # **Compute consistency accuracy**
+    consistency_acc = (tp / EXPECTED_GLOVES) * 100  # In percentage
 
     # Save evaluation results
     evaluation_data.append({
         "Frame": frame_index,
-        "Detected Gloves": detected_gloves,
-        "Expected Gloves": EXPECTED_GLOVES,
-        "Consistency Accuracy (%)": round(consistency_acc, 2)
+        "TP (Correct Gloves)": tp,
+        "FP (Misclassified Gloves)": fp,
+        "FN (Missed Gloves)": fn,
+        "Temporal Consistency (%)": round(consistency_acc, 2)
     })
 
     print(f"✅ Processed Frame {frame_index}/{total_frames} → Saved to {output_frame_path}")
 
-# Save evaluation results to CSV
+# **Compute Final Metrics**
+precision = total_tp / (total_tp + total_fp + 1e-6)
+recall = total_tp / (total_tp + total_fn + 1e-6)
+f1_score = 2 * (precision * recall) / (precision + recall + 1e-6)
+temporal_consistency = (total_tp / (total_tp + total_fn)) * 100  # Final Temporal Consistency
+
+# Save final results
+final_results = {
+    "Total Frames": frame_index,
+    "Total TP": total_tp,
+    "Total FP": total_fp,
+    "Total FN": total_fn,
+    "Final Precision": round(precision, 4),
+    "Final Recall": round(recall, 4),
+    "Final F1 Score": round(f1_score, 4),
+    "Final Temporal Consistency (%)": round(temporal_consistency, 2),
+}
+
 df = pd.DataFrame(evaluation_data)
 df.to_csv(csv_path, index=False)
 
@@ -159,3 +186,4 @@ cv2.destroyAllWindows()
 print(f"✅ Evaluation results saved: {csv_path}")
 print(f"✅ Processed video saved: {output_video_path}")
 print(f"✅ Processed frames saved in: {frames_output_dir}")
+print("✅ FINAL RESULTS:", final_results)
